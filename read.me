@@ -1,0 +1,137 @@
+Video Lazy (autoboot) — v1.0.0
+
+Tiny, modern, attribute-driven lazy loader for <video>. Include one script in your <head>, sprinkle data-vl on videos, and you’re done. No page JS.
+
+Why
+
+Faster first render by deferring video network activity until needed.
+
+Pure-HTML control via attributes.
+
+Safe autoplay on mobile (muted + playsinline).
+
+Works great on dynamic pages (MutationObserver).
+
+Install
+<!-- Recommended: include early in <head>. Debug logs are optional. -->
+<script src="example.com" data-vl-debug="false"></script>
+
+
+Works with or without defer. If included very early, it waits for DOMContentLoaded to boot.
+
+Use
+<video
+  data-vl
+  data-vl-src="/media/clip.mp4"
+  data-vl-play="visible hover"        <!-- load | visible | hover | parent-hover (combine) -->
+  data-vl-parent=".card"              <!-- for parent-hover -->
+  data-vl-margin="300px 0px"          <!-- IO rootMargin -->
+  data-vl-threshold="0"               <!-- IO threshold (0..1) -->
+  data-vl-preload="metadata"          <!-- none|metadata|auto (when loading starts) -->
+  data-vl-mute="true"                 <!-- defaults true for autoplay-ish modes -->
+  data-vl-pause-hidden="true"         <!-- pause when out of view (default true) -->
+  data-vl-resume="true"               <!-- resume on re-entry (default true) -->
+  data-vl-pause-page-hidden="false"   <!-- pause when tab hidden -->
+  loop muted controls playsinline>
+  <!-- Or multiple sources: -->
+  <source data-vl-src="/media/clip-720.mp4" type="video/mp4">
+  <source data-vl-src="/media/clip-720.webm" type="video/webm">
+</video>
+
+
+Tip: set data-vl="eager" to opt a video out of lazy behavior.
+
+Attributes (full spec)
+
+data-vl
+Opt-in flag. If set to "eager" the script will apply sources immediately and skip IO.
+
+data-vl-src (on <video> or <source>)
+Where to load the source from when the video actually loads.
+You can mix formats with multiple <source data-vl-src> children.
+
+data-vl-play = load | visible | hover | parent-hover (space/comma separated)
+
+load: play as soon as the first frame is ready.
+
+visible: play when intersecting the viewport; pauses on exit by default (data-vl-pause-hidden="true").
+
+hover: play on hover of the video.
+
+parent-hover: play on hover of the parent matched by data-vl-parent.
+
+data-vl-parent
+CSS selector to find the hover parent for parent-hover. If not found, nothing breaks (we log a warning when debug is on).
+
+data-vl-margin / data-vl-threshold
+Tuning for IntersectionObserver (rootMargin and threshold).
+
+data-vl-preload = none | metadata | auto
+Applied at the moment we start loading, not before. Until then we enforce preload="none" to avoid early network cost.
+
+data-vl-mute
+Defaults to true if any autoplay-ish mode is requested (load, visible, hover, parent-hover).
+
+data-vl-pause-hidden (default true)
+Pause when the video leaves the viewport.
+
+data-vl-resume (default true)
+If visible is active, resume when re-entering the viewport.
+
+data-vl-pause-page-hidden (default false)
+Pause when the tab is hidden; if the tab becomes visible again and visible+resume apply and the video is still in view, we try to resume.
+
+data-vl-debug
+Per-element logging override.
+Script-level logging: add data-vl-debug to the <script> tag, or set window.VIDEO_LAZY_DEBUG = true.
+
+Public API (optional)
+
+Exposed as window.VideoLazy for debugging:
+
+VideoLazy.attachAll(root)     // attach all <video data-vl> under root (default document)
+VideoLazy.attach(videoEl)     // attach one
+VideoLazy.detach(videoEl)     // detach/cleanup one
+VideoLazy.refresh(videoEl)    // re-read attributes and re-bind
+VideoLazy.reloadSources(el)   // re-apply data-vl-src after a dynamic change
+VideoLazy.play(videoEl)       // imperative play
+VideoLazy.pause(videoEl)      // imperative pause
+
+
+You don’t need this for normal use; it’s there for testing and edge cases.
+
+Performance notes
+
+We set preload="none" until you actually intersect or otherwise trigger a load.
+
+We disconnect the IntersectionObserver as soon as it’s no longer needed (no visibility-dependent features active).
+
+We swallow autoplay promise rejections to avoid console churn and micro-tasks under heavy scroll.
+
+The MutationObserver is filtered to data-vl-* attributes and only videos/descendants, reducing overhead on large DOMs.
+
+Edge cases handled
+
+Videos with existing src or <source src> are treated as already loaded (we don’t suppress their preload).
+
+Hover before load → we ensure sources are applied before trying to play.
+
+Parent hover without a parent → safe no-op (debug warns).
+
+IO missing (old webviews) → eager path; still honors play="load" and attempts visible once.
+
+Attribute changes live:
+
+Changing any data-vl-* refreshes the instance.
+
+Changing data-vl-src after load forces a source reload immediately.
+
+Limitation: changes to data-vl-src on <source> children are not observed individually (only attributes on <video> are watched). If you need to swap child sources dynamically, update the parent’s data-vl-src or call VideoLazy.reloadSources(video).
+
+Browser support
+
+Modern evergreen browsers.
+
+Requires IntersectionObserver for true lazy behavior; otherwise gracefully falls back to eager load.
+
+No IE support.
